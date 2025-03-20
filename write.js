@@ -1,11 +1,22 @@
 const fs = require('fs');
+const readline = require('readline');
 const { google } = require('googleapis');
 
 const SHEET_ID = '1Eo_Iowrwj9f4rSpst4mxpS7StBzOm9cl0SAAU6QA_ho'; // Thay thế bằng ID sheet của bạn
-const SHEET_NAME = 'DIEP';
-const COLUMN_E = 'D'; // user
-const COLUMN_F = 'E'; // status
 const BANNED_FILE = './thong_tin/banned_accounts.txt';
+
+// Hàm đọc input từ người dùng
+function askQuestion(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise(resolve => rl.question(query, answer => {
+        rl.close();
+        resolve(answer.trim());
+    }));
+}
 
 // Xác thực Google Sheets API
 async function authorize() {
@@ -26,10 +37,10 @@ function readBannedAccounts() {
     });
 }
 
-// Đọc danh sách users từ cột E của Google Sheet
-async function getSheetData(auth) {
+// Đọc danh sách users từ Google Sheet
+async function getSheetData(auth, sheetName, columnE, columnF) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const range = `${SHEET_NAME}!${COLUMN_E}:${COLUMN_F}`;
+    const range = `${sheetName}!${columnE}:${columnF}`;
     
     const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
@@ -38,17 +49,17 @@ async function getSheetData(auth) {
     return response.data.values || [];
 }
 
-// Cập nhật cột F nếu user bị banned
-async function updateSheet(auth, bannedAccounts) {
+// Cập nhật cột Status nếu user bị banned
+async function updateSheet(auth, bannedAccounts, sheetName, columnE, columnF) {
     const sheets = google.sheets({ version: 'v4', auth });
-    const sheetData = await getSheetData(auth);
+    const sheetData = await getSheetData(auth, sheetName, columnE, columnF);
     let updates = [];
 
     sheetData.forEach((row, index) => {
-        const username = row[0]; // Cột E chứa username
+        const username = row[0]; // Cột User nhập vào
         if (bannedAccounts.includes(username)) {
             updates.push({
-                range: `${SHEET_NAME}!${COLUMN_F}${index + 1}`,
+                range: `${sheetName}!${columnF}${index + 1}`,
                 values: [['Banned']]
             });
         }
@@ -70,10 +81,16 @@ async function updateSheet(auth, bannedAccounts) {
 
 // Chạy chương trình
 (async () => {
+    process.removeAllListeners('warning');
+
     try {
+        const sheetName = await askQuestion('Nhập tên Sheet (mặc định: Tài): ') || 'Tài';
+        const columnE = await askQuestion('Nhập cột User (mặc định: E): ') || 'E';
+        const columnF = await askQuestion('Nhập cột Status (mặc định: F): ') || 'F';
+
         const auth = await authorize();
         const bannedAccounts = await readBannedAccounts();
-        await updateSheet(auth, bannedAccounts);
+        await updateSheet(auth, bannedAccounts, sheetName, columnE, columnF);
     } catch (err) {
         console.error('Lỗi:', err.message);
     }
