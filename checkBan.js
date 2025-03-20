@@ -2,8 +2,9 @@ const fs = require("fs");
 const axios = require("axios");
 const { Worker, isMainThread, parentPort, workerData } = require("worker_threads");
 const { HttpsProxyAgent } = require("https-proxy-agent");
+const UserAgent = require("user-agents");
 
-const NUM_THREADS = 10; // Số lượng worker
+const NUM_THREADS = 100; // Số lượng worker
 
 const readFileLines = (filePath) => {
     try {
@@ -23,7 +24,7 @@ const writeResultToFile = (filePath, content) => {
     });
 };
 
-const checkTikTokAccount = async (username, proxy, userAgent) => {
+const checkTikTokAccount = async (username, proxy) => {
     try {
         const url = `https://www.tikwm.com/api/user/info?unique_id=${username}`;
         let httpsAgent = null;
@@ -48,7 +49,7 @@ const checkTikTokAccount = async (username, proxy, userAgent) => {
         }
 
         const response = await axios.get(url, {
-            headers: { "User-Agent": userAgent },
+            headers: { "User-Agent": UserAgent },
             httpsAgent,
         });
 
@@ -72,19 +73,18 @@ const checkTikTokAccount = async (username, proxy, userAgent) => {
 
 if (!isMainThread) {
     (async () => {
-        const { usernames, proxies, userAgents, restrictedFilePath, normalFilePath, errorFilePath } = workerData;
+        const { usernames, proxies, restrictedFilePath, normalFilePath, errorFilePath } = workerData;
 
         for (let i = 0; i < usernames.length; i++) {
             const proxy = proxies[i % proxies.length];
-            const userAgent = userAgents[i % userAgents.length];
-            const result = await checkTikTokAccount(usernames[i], proxy, userAgent);
+            const result = await checkTikTokAccount(usernames[i], proxy);
             
             if (result.status === "Banned") {
-                await writeResultToFile(restrictedFilePath, `${result.username} - ${result.reason}`);
+                await writeResultToFile(restrictedFilePath, `${result.username}`);
             } else if (result.status === "Normal") {
                 await writeResultToFile(normalFilePath, result.username);
             } else {
-                await writeResultToFile(errorFilePath, `${result.username} - Lỗi: ${result.reason}`);
+                await writeResultToFile(errorFilePath, `${result.username}`);
             }
         }
         parentPort.postMessage("Done");
@@ -93,9 +93,8 @@ if (!isMainThread) {
     (async () => {
         const usernames = readFileLines("./thong_tin/usernames.txt");
         const proxies = readFileLines("./thong_tin/proxy.txt");
-        const userAgents = readFileLines("./thong_tin/userAgents.txt");
 
-        if (usernames.length === 0 || proxies.length === 0 || userAgents.length === 0) {
+        if (usernames.length === 0 || proxies.length === 0) {
             throw new Error("Danh sách usernames, proxies hoặc user-agents bị thiếu.");
         }
 
@@ -108,7 +107,6 @@ if (!isMainThread) {
 
         const batchSize = Math.ceil(usernames.length / NUM_THREADS);
         const proxyBatchSize = Math.ceil(proxies.length / NUM_THREADS);
-        const userAgentBatchSize = Math.ceil(userAgents.length / NUM_THREADS);
 
         console.log(`Chia thành ${NUM_THREADS} worker threads để xử lý`);
 
@@ -116,7 +114,6 @@ if (!isMainThread) {
         for (let i = 0; i < NUM_THREADS; i++) {
             const workerUsernames = usernames.slice(i * batchSize, (i + 1) * batchSize);
             const workerProxies = proxies.slice(i * proxyBatchSize, (i + 1) * proxyBatchSize);
-            const workerUserAgents = userAgents.slice(i * userAgentBatchSize, (i + 1) * userAgentBatchSize);
 
             if (workerUsernames.length === 0) continue;
 
@@ -124,7 +121,6 @@ if (!isMainThread) {
                 workerData: {
                     usernames: workerUsernames,
                     proxies: workerProxies.length > 0 ? workerProxies : proxies,
-                    userAgents: workerUserAgents.length > 0 ? workerUserAgents : userAgents,
                     restrictedFilePath,
                     normalFilePath,
                     errorFilePath

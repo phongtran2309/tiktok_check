@@ -15,6 +15,7 @@
     "https-proxy-agent": "^7.0.6",
     "pexels": "^1.4.0",
     "puppeteer": "^24.4.0",
+    "user-agents": "^1.1.484",
     "worker-thread": "^1.1.0"
   }
 }
