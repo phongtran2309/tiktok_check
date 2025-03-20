@@ -2,9 +2,9 @@ const fs = require('fs');
 const { google } = require('googleapis');
 
 const SHEET_ID = '1Eo_Iowrwj9f4rSpst4mxpS7StBzOm9cl0SAAU6QA_ho'; // Thay thế bằng ID sheet của bạn
-const SHEET_NAME = 'Tài';
-const COLUMN_E = 'E';
-const COLUMN_F = 'F';
+const SHEET_NAME = 'DIEP';
+const COLUMN_E = 'D'; // user
+const COLUMN_F = 'E'; // status
 const BANNED_FILE = './thong_tin/banned_accounts.txt';
 
 // Xác thực Google Sheets API

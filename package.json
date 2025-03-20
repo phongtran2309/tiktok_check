@@ -12,6 +12,8 @@
     "axios": "^1.8.3",
     "fs": "^0.0.1-security",
     "googleapis": "^146.0.0",
+    "https-proxy-agent": "^7.0.6",
+    "pexels": "^1.4.0",
     "puppeteer": "^24.4.0",
     "worker-thread": "^1.1.0"
   }

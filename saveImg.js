@@ -1,84 +1,65 @@
-const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
-// Tạo danh sách lưu URL đã tải
-const downloadedImages = new Set();
-const downloadFolder = path.join(__dirname, "images");
-if (!fs.existsSync(downloadFolder)) fs.mkdirSync(downloadFolder);
+const API_KEY = "bP9KKZzUS9ZjyjFXHM3Oiq9JkfpjOkkPQd8SmNJtf3z5NS9DxJKEK3Uf";
+const QUERY = "Japanese woman portrait"; // Từ khóa tìm kiếm
+const MAX_PAGE = 100; // Số trang cần lấy
+const PER_PAGE = 24; // Số ảnh mỗi trang
+const IMG_FILE = "img.txt"; // File lưu danh sách ảnh
+const DOWNLOAD_FOLDER = path.join(__dirname, "images");
+
+// Tạo thư mục images nếu chưa có
+if (!fs.existsSync(DOWNLOAD_FOLDER)) fs.mkdirSync(DOWNLOAD_FOLDER);
+
+// Đọc danh sách ảnh đã có trong img.txt
+let savedUrls = new Set();
+if (fs.existsSync(IMG_FILE)) {
+  savedUrls = new Set(fs.readFileSync(IMG_FILE, "utf-8").split("\n").filter(Boolean));
+}
 
 // Hàm tải ảnh
-async function downloadImage(url, index) {
-  if (downloadedImages.has(url)) return; // Bỏ qua nếu trùng
+async function downloadImage(url, page, index) {
+  const filePath = path.join(DOWNLOAD_FOLDER, `image_${page}_${index + 1}.jpg`);
+  if (fs.existsSync(filePath)) return console.log(`⚠️ Ảnh đã tồn tại: ${filePath}`);
 
   try {
     const response = await axios.get(url, { responseType: "arraybuffer" });
-    const imagePath = path.join(downloadFolder, `image_${index}.jpg`);
-    fs.writeFileSync(imagePath, response.data);
-    downloadedImages.add(url);
-    console.log(`✅ Đã tải ảnh: ${imagePath}`);
+    fs.writeFileSync(filePath, response.data);
+    console.log(`✅ Đã tải ảnh: ${filePath}`);
   } catch (error) {
     console.error(`❌ Lỗi tải ảnh ${url}: `, error.message);
   }
 }
 
-// Hàm lấy URL ảnh trên trang
-async function getImageUrls(page) {
-  return await page.evaluate(() => {
-    return Array.from(document.querySelectorAll("img"))
-      .map(img => img.src || img.getAttribute("data-src"))
-      .filter(url => url && url.startsWith("https"));
-  });
-}
+// Hàm lấy ảnh từ API
+async function fetchPhotos(page) {
+  const URL = `https://api.pexels.com/v1/search?query=${encodeURIComponent(QUERY)}&page=${page}&per_page=${PER_PAGE}`;
 
-// Hàm tự động cuộn + tải ảnh theo từng lần cuộn
-async function autoScroll(page, scrollCount = 50) {
-  let totalImages = 0;
-
-  for (let i = 0; i < scrollCount; i++) {
-    console.log(`🔄 Cuộn lần ${i + 1}/${scrollCount}...`);
-
-    // Lấy URL ảnh hiện tại trên trang
-    const imageUrls = await getImageUrls(page);
-    
-    // Tải từng ảnh
-    for (const url of imageUrls) {
-      await downloadImage(url, totalImages);
-      totalImages++;
+  try {
+    const response = await axios.get(URL, { headers: { Authorization: API_KEY } });
+    const newPhotos = response.data.photos.map(photo => photo.src.large).filter(url => !savedUrls.has(url));
+    if (newPhotos.length === 0) {
+      console.log(`✅ Trang ${page}: Không có ảnh mới để tải.`);
+      return;
     }
 
-    // Cuộn xuống
-    await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Đợi ảnh tải xong
+    // Lưu URL mới vào file img.txt
+    fs.appendFileSync(IMG_FILE, newPhotos.join("\n") + "\n");
+
+    // Tải ảnh về
+    for (let i = 0; i < newPhotos.length; i++) {
+      await downloadImage(newPhotos[i], page, i);
+    }
+
+    console.log(`🎉 Trang ${page}: Hoàn tất tải ảnh!`);
+  } catch (error) {
+    console.error(`❌ Lỗi lấy dữ liệu trang ${page}:`, error.message);
   }
 }
 
 (async () => {
-  const browser = await puppeteer.launch({
-    headless: false,
-    // args: [
-    //   "--disable-gpu",
-    //   "--disable-software-rasterizer",
-    //   "--disable-dev-shm-usage",
-    //   "--no-sandbox",
-    //   "--disable-setuid-sandbox",
-    //   "--window-size=1920,1080"
-    // ]
-  });
-
-  const page = await browser.newPage();
-
-  // Fake User-Agent để tránh bị chặn
-//   await page.setUserAgent(
-//     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-//   );
-
-  const url = "https://www.pinterest.com/search/pins/?q=Japanese%20Girl&rs=typed";
-  await page.goto(url, { waitUntil: "load", timeout: 0 });
-
-  // Chạy cuộn và tải ảnh
-  await autoScroll(page, 50);
-
-  await browser.close();
+  for (let page = 1; page <= MAX_PAGE; page++) {
+    await fetchPhotos(page);
+  }
 })();
