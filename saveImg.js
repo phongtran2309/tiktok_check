@@ -80,7 +80,7 @@ async function autoScroll(page, scrollCount = 2500) {
 
 (async () => {
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     args: [
       "--disable-gpu",
       "--disable-software-rasterizer",
@@ -98,11 +98,11 @@ async function autoScroll(page, scrollCount = 2500) {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
   );
 
-  const url = "https://www.pinterest.com/search/pins/?q=asia%20girl&rs=typed";
+  const url = "https://www.pinterest.com/search/pins/?q=asia%20girls&rs=typed";
   await page.goto(url, { waitUntil: "load", timeout: 0 });
 
   // Chạy cuộn và tải ảnh
-  await autoScroll(page, 50);
+  await autoScroll(page, 1000);
 
   await browser.close();
 })();

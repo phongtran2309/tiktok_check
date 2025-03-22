@@ -7,18 +7,37 @@ const axios = require("axios");
 const downloadFolder = path.join(__dirname, "videos");
 if (!fs.existsSync(downloadFolder)) fs.mkdirSync(downloadFolder);
 
-// Danh sách video đã tải để tránh trùng lặp
-const downloadedVideos = new Set();
+// Đường dẫn tới file video.txt
+const videoTxtPath = path.join(__dirname, "video.txt");
+
+// Đọc các URL video đã tải từ video.txt
+function readDownloadedVideos() {
+  if (fs.existsSync(videoTxtPath)) {
+    const data = fs.readFileSync(videoTxtPath, "utf-8");
+    return new Set(data.split("\n").filter(Boolean));
+  }
+  return new Set();
+}
+
+// Lưu URL video vào video.txt
+function saveDownloadedVideo(url) {
+  fs.appendFileSync(videoTxtPath, url + "\n");
+}
 
 // Hàm tải video
 async function downloadVideo(url, index) {
-  if (downloadedVideos.has(url)) return; // Bỏ qua nếu đã tải
+  const downloadedVideos = readDownloadedVideos();
+
+  if (downloadedVideos.has(url)) {
+    console.log(`❌ Video ${url} đã tải rồi, bỏ qua.`);
+    return; // Bỏ qua nếu đã tải
+  }
 
   try {
     const response = await axios.get(url, { responseType: "arraybuffer" });
     const videoPath = path.join(downloadFolder, `video_${index}.mp4`);
     fs.writeFileSync(videoPath, response.data);
-    downloadedVideos.add(url);
+    saveDownloadedVideo(url); // Lưu URL vào video.txt
     console.log(`✅ Đã tải video: ${videoPath}`);
   } catch (error) {
     console.error(`❌ Lỗi tải video ${url}: `, error.message);
@@ -43,7 +62,7 @@ async function autoScrollAndDownload(page, scrollCount = 50) {
 
     // Lấy URL video hiện tại
     const videoUrls = await getVideoUrls(page);
-    
+
     // Tải từng video
     for (const url of videoUrls) {
       await downloadVideo(url, totalVideos);
