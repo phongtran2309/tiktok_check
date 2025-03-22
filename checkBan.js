@@ -4,7 +4,7 @@ const { Worker, isMainThread, parentPort, workerData } = require("worker_threads
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const UserAgent = require("user-agents");
 
-const NUM_THREADS = 100; // Số lượng worker
+const NUM_THREADS = process.argv[2] ? process.argv[2] : 20; // Số lượng worker
 
 const readFileLines = (filePath) => {
     try {
