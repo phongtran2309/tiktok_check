@@ -76,6 +76,10 @@ async function autoScrollAndDownload(page, scrollCount = 50) {
 }
 
 (async () => {
+  const url = "https://www.pexels.com/search/videos/japanese/";
+  //thay url
+  const loop = 100; // số lần cuộn trang
+
   const browser = await puppeteer.launch({
     headless: true,
     args: [
@@ -95,11 +99,10 @@ async function autoScrollAndDownload(page, scrollCount = 50) {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
   );
 
-  const url = "https://www.pexels.com/search/videos/japanese/";
   await page.goto(url, { waitUntil: "load", timeout: 0 });
 
   // Chạy cuộn & tải video
-  await autoScrollAndDownload(page, 50);
+  await autoScrollAndDownload(page, loop);
 
   await browser.close();
 })();
